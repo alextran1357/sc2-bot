@@ -159,5 +159,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Ignore the q_table.csv file 
+# Ignore the q_table.csv and q_table.pkl
 q_table.csv
+q_table.pkl
