@@ -4,7 +4,7 @@ from pysc2.lib import actions, features, units
 from absl import app
 import numpy as np
 import pandas as pd
-import random
+import os
 
 # Possible Actions
 ACTION_DO_NOTHING = 'donothing'
@@ -28,12 +28,16 @@ smart_actions = [
 ]
 
 class QLearningTable():
-   def __init__(self, actions, learning_rate=0.01, gamma=0.9, epsilon=0.9):
+   def __init__(self, actions, learning_rate=0.01, gamma=0.9, epsilon=0.9, pickle_file=None):
       self.actions = actions
       self.learning_rate = learning_rate
       self.gamma = gamma
       self.epsilon = epsilon
-      self.q_table = pd.DataFrame(columns=self.actions, dtype=np.float64)
+      
+      if pickle_file == None:
+         self.q_table = pd.DataFrame(columns=self.actions, dtype=np.float64)
+      else:
+         self.q_table = pd.read_pickle('q_table.pkl')
       
    def choose_action(self, observation):
       self.check_state_exist(observation)
@@ -66,7 +70,12 @@ class ProtossAgent(base_agent.BaseAgent):
       super(ProtossAgent, self).__init__()
       self.base_top_left = False
       
-      self.qlearn = QLearningTable(actions=list(range(len(smart_actions))))
+      # Check pickle q_table exist
+      path = './q_table.pkl'
+      if os.path.isfile(path):
+         self.q_table = QLearningTable(actions=list(range(len(smart_actions))),pickle_file=path)
+      else:
+         self.q_table = QLearningTable(actions=list(range(len(smart_actions))))
       
       self.previous_killed_unit_score = 0
       self.previous_killed_stucture_score = 0
@@ -159,7 +168,11 @@ class ProtossAgent(base_agent.BaseAgent):
       if obs.first():
          nexus = self.get_units_by_type(obs, units.Protoss.Nexus)[0]
          self.base_top_left = (nexus.x < 32)
-
+         
+      if obs.last():
+         self.q_table.q_table.to_pickle('q_table.pkl')
+         self.q_table.q_table.to_csv('q_table.csv') # for visualization
+         
       # Getting column values
       # number zealots
       zealot_count = len(self.get_units_by_type(obs, units.Protoss.Zealot))
@@ -193,9 +206,9 @@ class ProtossAgent(base_agent.BaseAgent):
          if killed_structure_score > self.previous_killed_structure_score:
             reward += KILL_STRUCTURE_REWARD
             
-         self.qlearn.learn(str(self.previous_state), self.previous_action, reward, str(current_state))
+         self.q_table.learn(str(self.previous_state), self.previous_action, reward, str(current_state))
          
-      rl_action = self.qlearn.choose_action(str(current_state))
+      rl_action = self.q_table.choose_action(str(current_state))
       smart_action = smart_actions[rl_action]
       
       self.previous_killed_unit_score = killed_unit_score
@@ -253,7 +266,7 @@ class ProtossAgent(base_agent.BaseAgent):
 
       return actions.RAW_FUNCTIONS.no_op()
       
-def main():
+def main(unused_arg):
    agent = ProtossAgent()
    try:
       while True:
